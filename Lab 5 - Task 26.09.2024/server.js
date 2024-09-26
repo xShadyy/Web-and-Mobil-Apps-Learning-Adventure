@@ -2,9 +2,14 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
-var mime = require('mime-types')
+var mime = require('mime-types');
+
+const assetsFolder = path.join(__dirname, 'assets');
 
 const server = http.createServer((req,res) => {
+    const parsedUrl = url.parse(req.url, true);
+    const pathname = parsedUrl.pathname;
+
     if (req.url === '/') {
         res.writeHead(200, {'Content-Type': 'text/plain'});
         res.end('Strona glowna');
@@ -16,7 +21,7 @@ const server = http.createServer((req,res) => {
             age: 30,
             job: 'programista'
         };
-        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.writeHead(200, {'Content-Type': 'application/json'});
         res.end(JSON.stringify(jsonData));
     }
 
@@ -76,28 +81,35 @@ const server = http.createServer((req,res) => {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: 'ok' }));
         });
-    }
+    } else {
 
-    else {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        let search = url.parse(req.url).pathname;
-        //console.log(search);
-        const filePathAssets = path.join(__dirname, 'assets');
-        if (search in folderPathAssets){
-            const mime_type = mime.getType(filePathAssets);
-            //console.log(mime_type);
+    const filePath = path.join(assetsFolder, pathname);
 
-        }
-        else {
+
+    fs.stat(filePath, (err, stats) => {
+        if (err || !stats.isFile()) {
+
             res.writeHead(404, { 'Content-Type': 'application/json' });
-            return res.status(404).send({error : "File not found"});
-        }
+            res.end(JSON.stringify({ error: '404 - File not found' }));
+        } else {
+
+            const mimeType = mime.lookup(filePath) || 'application/octet-stream';
 
 
+            fs.readFile(filePath, (err, data) => {
+                if (err) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Błąd serwera podczas odczytu pliku' }));
+                } else {
 
+                    res.writeHead(200, { 'Content-Type': mimeType });
+                    res.end(data);
+                    }
+                });
+            }
+        });
     }
 });
-
 
 const PORT = 3000;
 server.listen(PORT, () => {
